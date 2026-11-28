@@ -2,13 +2,19 @@ package view;
 
 import entity.Transaction;
 import entity.TransactionType;
+import frameworks_and_drivers.currency.GetIDDataAccess;
+import frameworks_and_drivers.currency.ViewCurrencyDataAccess;
+import interface_adapter.change_currency.*;
 import interface_adapter.transactions.TransactionDashboardController;
 import interface_adapter.transactions.TransactionDashboardViewModel;
+import use_case.change_currency.GetIDInteractor;
+import use_case.change_currency.ViewCurrencyInteractor;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import java.awt.*;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -76,7 +82,19 @@ public final class FinanceTrackerView extends JFrame {
         actions.add(add);
         addPlaceholderButton(actions, "Login");
         addPlaceholderButton(actions, "Sign Up");
-        addPlaceholderButton(actions, "Change Currency");
+
+        // addPlaceholderButton(actions, "Change Currency");
+
+        JButton changeCurrency = new JButton("Change Currency");
+        changeCurrency.addActionListener(event -> {
+          try {
+            showCurrencyDialog();
+          } catch (IOException e) {
+            throw new RuntimeException(e);
+          }
+        });
+        actions.add(changeCurrency);
+
         addPlaceholderButton(actions, "Upload Receipt");
         top.add(titles, BorderLayout.WEST);
         top.add(actions, BorderLayout.EAST);
@@ -103,7 +121,32 @@ public final class FinanceTrackerView extends JFrame {
         setContentPane(root);
     }
 
-    private void addPlaceholderButton(JPanel actions, String feature) {
+  private void showCurrencyDialog() throws IOException {
+    String selectedUser = selectedUser();
+    GetIDDataAccess dataAccess = new GetIDDataAccess(selectedUser);
+    GetIDViewModel viewModel = new GetIDViewModel(0, 0);
+    GetIDPresenter presenter = new GetIDPresenter(viewModel);
+    GetIDInteractor interactor = new GetIDInteractor(dataAccess, presenter);
+    GetIDController controller = new GetIDController(interactor);
+    controller.execute(selectedUser);
+    int profileID = viewModel.getProfileID();
+    int accountID = viewModel.getAccountID();
+
+    ViewCurrencyDataAccess currencyDataAccess = new ViewCurrencyDataAccess(profileID, accountID);
+    ViewCurrencyViewModel currencyViewModel = new ViewCurrencyViewModel("NaN");
+    ViewCurrencyPresenter currencyPresenter = new ViewCurrencyPresenter(currencyViewModel);
+    ViewCurrencyInteractor currencyInteractor = new ViewCurrencyInteractor(currencyDataAccess, currencyPresenter);
+    ViewCurrencyController currencyController = new ViewCurrencyController(currencyInteractor);
+
+    currencyController.execute(profileID, accountID);
+
+    String defaultCurrency = currencyViewModel.getDefaultCurrency();
+
+    System.out.println("Default currency: " + defaultCurrency);
+    JOptionPane.showMessageDialog(this, "Default currency: " + defaultCurrency);
+  }
+
+  private void addPlaceholderButton(JPanel actions, String feature) {
         JButton button = new JButton(feature);
         button.addActionListener(event -> JOptionPane.showMessageDialog(this,
             feature + " is a placeholder for now. The team can implement this feature later.",
